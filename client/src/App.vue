@@ -359,6 +359,9 @@ export default {
         });
         alert(response.data.message);
         this.fetchStatus();
+        // 입실처리를 하면 입력하던 부분을 초기화한다.
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
       } catch (error) {
         console.error("Failed to check out:", error);
         alert(
@@ -402,7 +405,7 @@ export default {
         if (timeLeft === 0) {
           clearInterval(timerId);
           alert(`${student.name}의 예상 학습 시간이 종료되었습니다!`);
-          this.fetchStatus();
+          // this.fetchStatus();
         }
       }, 1000);
       this.timers[student.id] = timerId;
