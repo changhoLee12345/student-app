@@ -226,8 +226,8 @@ export default {
     };
   },
   created() {
-    this.fetchStudents();
-    this.fetchStatus();
+    // this.fetchStudents();
+    // this.fetchStatus();
     this.fetchIpAddress().then(() => {
       // IP 주소를 가져온 후 데이터를 불러옵니다.
       this.fetchStudents();
