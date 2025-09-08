@@ -196,7 +196,7 @@
 import axios from "axios";
 import StudentCard from "./components/StudentCard.vue";
 
-const API_URL = "http://localhost:3000/api/students";
+let API_URL = "http://localhost:3000/api/students";
 
 export default {
   name: "App",
@@ -228,6 +228,11 @@ export default {
   created() {
     this.fetchStudents();
     this.fetchStatus();
+    this.fetchIpAddress().then(() => {
+      // IP 주소를 가져온 후 데이터를 불러옵니다.
+      this.fetchStudents();
+      this.fetchStatus();
+    });
   },
   computed: {
     totalPages() {
@@ -387,6 +392,45 @@ export default {
       this.selectedStudentToEdit = { ...student }; // Use spread operator to create a copy
       // Clear the search query after selection
       this.searchQuery = "";
+    },
+    // IP 주소를 가져오는 비동기 함수
+    async fetchIpAddress() {
+      try {
+        const response = await axios.get("https://api.ipify.org?format=json");
+        const publicIp = response.data.ip;
+        // 로컬 IP 주소를 찾기 위한 코드
+        const localIp = await this.getLocalIp();
+
+        // 공용 IP 또는 로컬 IP를 사용하여 API URL 설정
+        // 이 부분은 네트워크 환경에 따라 조정해야 할 수 있습니다.
+        API_URL = `http://${localIp || publicIp}:3000/api/students`;
+        console.log(`API URL이 ${API_URL}로 설정되었습니다.`);
+      } catch (error) {
+        console.error("IP 주소를 가져오는 데 실패했습니다:", error);
+      }
+    },
+    // 로컬 IP를 가져오는 함수 (WebRTC 이용)
+    getLocalIp() {
+      return new Promise((resolve, reject) => {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        const noop = () => {};
+        pc.createDataChannel("");
+        pc.createOffer().then(pc.setLocalDescription.bind(pc)).catch(noop);
+        pc.onicecandidate = (ice) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) {
+            reject("Local IP not found");
+            return;
+          }
+          const parts = ice.candidate.candidate.split(" ");
+          const ip = parts[4];
+          if (ip.endsWith(".local")) {
+            reject("Local IP not found");
+            return;
+          }
+          resolve(ip);
+          pc.onicecandidate = noop;
+        };
+      });
     },
   },
   beforeUnmount() {
