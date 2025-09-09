@@ -485,7 +485,6 @@ body {
   justify-content: center;
   margin-bottom: 25px;
 }
-
 .tab-btn {
   padding: 12px 25px;
   border: none;
@@ -499,7 +498,6 @@ body {
   position: relative;
   top: 1px;
 }
-
 .tab-btn.active {
   background-color: #d4e157;
   color: #444;
