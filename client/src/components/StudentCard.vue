@@ -5,7 +5,11 @@
     @mouseenter="showTooltip = true"
     @mouseleave="showTooltip = false"
   >
-    <div class="card-name" :class="{ 'blinking-text': isTimeLow }">
+    <div
+      class="card-name"
+      :class="{ 'blinking-text': isTimeLow }"
+      @click="selectCheckoutStudent(student)"
+    >
       {{ student.name }}
     </div>
     <div class="card-info">
@@ -16,8 +20,12 @@
     <div class="card-time">
       {{ isCheckOut ? "퇴실" : "예상" }}: {{ formattedCheckOutTime }}
     </div>
-    <div class="graph-bar-wrapper">
-      <div class="graph-bar" :style="graphStyle"></div>
+    <div class="time-progress-container">
+      <div class="start-time-text">{{ student.study_hours }}분</div>
+      <div class="graph-bar-wrapper">
+        <div class="graph-bar" :style="graphStyle"></div>
+      </div>
+      <div class="end-time-text">0분</div>
     </div>
     <div class="remaining-time-text">{{ remainingTimeText }}</div>
     <div
@@ -90,6 +98,13 @@ export default {
       }
       const threeMinutesInMs = 3 * 60 * 1000;
       return this.student.timeLeft < threeMinutesInMs;
+    },
+  },
+  methods: {
+    selectCheckoutStudent(student) {
+      if (this.fromView === "manage" && !this.isCheckOut) {
+        this.$emit("select-checkout-student", student);
+      }
     },
   },
 };
@@ -172,19 +187,50 @@ export default {
   border-color: #555 transparent transparent transparent;
 }
 
+.card-name {
+  font-size: 1.8em;
+  font-weight: bold;
+  color: #5d4037;
+  margin-bottom: 5px;
+}
+
 .student-card:hover .tooltip {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(-110%);
 }
 
+/* 🟢 추가: 학습 시간 게이지 바 컨테이너 스타일 */
+.time-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.start-time-text,
+.end-time-text {
+  font-size: 0.8em;
+  color: #616161;
+  font-weight: bold;
+}
+
 .graph-bar-wrapper {
-  width: 100%;
+  flex-grow: 1; /* 컨테이너 내에서 남은 공간을 모두 차지하도록 설정 */
   height: 8px;
   background-color: #e0e0e0;
   border-radius: 5px;
-  margin-top: 15px;
   overflow: hidden;
+}
+
+/* 🟢 기존 .remaining-time-text 스타일 수정 */
+.remaining-time-text {
+  font-size: 0.75em;
+  color: #d32f2f;
+  font-weight: bold;
+  margin-top: 5px;
+  text-align: right;
+  /* 기존에 'text-align: right'가 설정되어 있으므로, 이 부분은 그대로 두면 됩니다. */
 }
 
 .graph-bar {

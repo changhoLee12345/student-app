@@ -7,7 +7,8 @@
       <div class="refresh-bar" :style="{ width: progressPercent + '%' }"></div>
     </div>
     <div class="refresh-info">
-      다음 새로고침까지: <strong>{{ countdown }}초</strong>
+      <!-- 다음 새로고침까지: <strong>{{ countdown }}초</strong> -->
+      현재 시간: <strong>{{ currentTime.toLocaleTimeString() }}</strong>
     </div>
 
     <!-- 학생 상태 -->
@@ -37,6 +38,7 @@ export default {
       studentsStatus: [],
       countdown: 60,
       intervalId: null,
+      currentTime: new Date(),
     };
   },
   computed: {
@@ -74,6 +76,11 @@ export default {
           this.countdown--;
         } else {
           this.countdown = 60;
+        }
+        this.currentTime = new Date();
+        // 새로고침할때 데이터를 가져옵니다.
+        if (this.countdown === 60) {
+          this.fetchStatus();
         }
       }, 1000);
     },

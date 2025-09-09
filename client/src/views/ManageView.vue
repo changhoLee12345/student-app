@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="container">
-      <h1 class="main-title">⭐ 꼬마 탐험가들의 학습 기록 ⭐</h1>
+      <h1 class="main-title">⭐ 학생들의 학습 기록 ⭐</h1>
 
       <div class="tabs">
         <button
@@ -29,7 +29,7 @@
 
       <div id="info-tab" class="tab-content" v-show="activeTab === 'info'">
         <div class="card info-card">
-          <h2>새로운 탐험가 등록</h2>
+          <h2>새로운 학생 등록</h2>
           <div class="form-group">
             <label for="infoStudentName">이름:</label>
             <input type="text" v-model="newStudent.name" placeholder="김민준" />
@@ -57,11 +57,11 @@
             ></textarea>
           </div>
           <button @click="addStudent" class="primary-btn">
-            ✨ 탐험가 등록하기
+            ✨ 학생 등록하기
           </button>
         </div>
         <div class="card registered-card">
-          <h2>등록된 탐험가들</h2>
+          <h2>등록된 학생들</h2>
           <div class="student-table-container">
             <table>
               <thead>
@@ -100,7 +100,7 @@
         v-show="activeTab === 'checkin'"
       >
         <div class="checkin-controls">
-          <label for="studentSearch" class="control-label">탐험가 선택:</label>
+          <label for="studentSearch" class="control-label">학생 선택:</label>
           <div class="search-container">
             <input
               type="text"
@@ -146,20 +146,21 @@
             :key="student.id"
             :student="student"
             fromView="manage"
+            @select-checkout-student="selectCheckoutStudent"
           />
         </div>
       </div>
 
       <div id="edit-tab" class="tab-content" v-show="activeTab === 'edit'">
         <div class="card edit-card">
-          <h2>탐험가 정보 수정</h2>
+          <h2>학생 정보 수정</h2>
           <div class="form-group">
-            <label for="searchStudent">탐험가 검색:</label>
+            <label for="searchStudent">학생 검색:</label>
             <input
               type="text"
               id="searchStudent"
               v-model="editSearchQuery"
-              placeholder="수정할 탐험가 이름을 입력하세요"
+              placeholder="수정할 학생 이름을 입력하세요"
             />
             <ul
               v-if="filteredEditStudents.length > 0 && editSearchQuery"
@@ -421,6 +422,12 @@ export default {
         this.currentPage--;
       }
     },
+    selectCheckoutStudent(student) {
+      console.log("selectCheckoutStudent", student);
+      this.selectedStudent = student.id;
+      this.checkinSearchQuery = student.name;
+      this.checkinStatus = true;
+    },
   },
   beforeUnmount() {
     for (const timerId in this.timers) {
@@ -623,13 +630,6 @@ body {
 .student-card:hover {
   transform: scale(1.03);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-}
-
-.card-name {
-  font-size: 1.3em;
-  font-weight: bold;
-  color: #5d4037;
-  margin-bottom: 5px;
 }
 
 .card-info {
