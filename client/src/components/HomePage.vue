@@ -1,6 +1,6 @@
 <template>
   <div class="container home-page">
-    <h1 class="main-title">✨ 꼬마 탐험가들의 현재 학습 현황(App.vue) ✨</h1>
+    <h1 class="main-title">✨ 꼬마 탐험가들의 현재 학습 현황 ✨</h1>
     <div class="student-grid">
       <student-card
         v-for="student in studentsStatus"
@@ -13,7 +13,7 @@
 
 <script>
 import axios from "axios";
-import StudentCard from "./components/StudentCard.vue";
+import StudentCard from "./StudentCard.vue";
 
 const API_URL = "http://localhost:3000/api/students";
 
@@ -29,7 +29,7 @@ export default {
     };
   },
   created() {
-    console.log("app");
+    console.log("homepage");
     this.fetchStatus();
     this.startRefreshTimer();
   },
