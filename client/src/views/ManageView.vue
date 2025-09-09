@@ -1,0 +1,760 @@
+<template>
+  <div id="app">
+    <div class="container">
+      <h1 class="main-title">⭐ 꼬마 탐험가들의 학습 기록 ⭐</h1>
+
+      <div class="tabs">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'info' }"
+          @click="activeTab = 'info'"
+        >
+          📝 학생 정보 등록
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'checkin' }"
+          @click="activeTab = 'checkin'"
+        >
+          🚀 입퇴실 관리
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'edit' }"
+          @click="activeTab = 'edit'"
+        >
+          ✏️ 학생 정보 수정
+        </button>
+      </div>
+
+      <div id="info-tab" class="tab-content" v-show="activeTab === 'info'">
+        <div class="card info-card">
+          <h2>새로운 탐험가 등록</h2>
+          <div class="form-group">
+            <label for="infoStudentName">이름:</label>
+            <input type="text" v-model="newStudent.name" placeholder="김민준" />
+          </div>
+          <div class="form-group">
+            <label for="studentGrade">학년:</label>
+            <input type="text" v-model="newStudent.grade" placeholder="3학년" />
+          </div>
+          <div class="form-group">
+            <label for="studyHours">예상 학습 시간 (분):</label>
+            <input
+              type="number"
+              v-model="newStudent.studyHours"
+              min="10"
+              max="240"
+              step="10"
+            />
+          </div>
+          <div class="form-group">
+            <label for="specialNotes">특이사항:</label>
+            <textarea
+              v-model="newStudent.specialNotes"
+              rows="3"
+              placeholder="예: 알레르기, 집중력이 뛰어남 등"
+            ></textarea>
+          </div>
+          <button @click="addStudent" class="primary-btn">
+            ✨ 탐험가 등록하기
+          </button>
+        </div>
+        <div class="card registered-card">
+          <h2>등록된 탐험가들</h2>
+          <div class="student-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>학년</th>
+                  <th>예상 학습 시간</th>
+                  <th>특이사항</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="student in paginatedStudents" :key="student.id">
+                  <td>{{ student.name }}</td>
+                  <td>{{ student.grade }}</td>
+                  <td>{{ student.study_hours }}분</td>
+                  <td>{{ student.special_notes }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button @click="prevPage" :disabled="currentPage === 1">
+              이전
+            </button>
+            <span>{{ currentPage }} / {{ totalPages }}</span>
+            <button @click="nextPage" :disabled="currentPage === totalPages">
+              다음
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="checkin-tab"
+        class="tab-content"
+        v-show="activeTab === 'checkin'"
+      >
+        <div class="checkin-controls">
+          <label for="studentSearch" class="control-label">탐험가 선택:</label>
+          <div class="search-container">
+            <input
+              type="text"
+              id="studentSearch"
+              v-model="checkinSearchQuery"
+              placeholder="학생 이름 검색"
+            />
+            <ul
+              v-if="
+                filteredCheckinStudents.length > 0 &&
+                checkinSearchQuery &&
+                !checkinStatus
+              "
+              class="search-results"
+            >
+              <li
+                v-for="student in filteredCheckinStudents"
+                :key="student.id"
+                @click="selectCheckinStudent(student)"
+              >
+                {{ student.name }} ({{ student.grade }}학년)
+              </li>
+            </ul>
+          </div>
+          <button
+            @click="checkIn"
+            class="action-btn checkin-btn"
+            :disabled="!selectedStudent"
+          >
+            입실
+          </button>
+          <button
+            @click="checkOut"
+            class="action-btn checkout-btn"
+            :disabled="!selectedStudent"
+          >
+            퇴실
+          </button>
+        </div>
+        <div class="student-grid">
+          <student-card
+            v-for="student in studentsStatus"
+            :key="student.id"
+            :student="student"
+            fromView="manage"
+          />
+        </div>
+      </div>
+
+      <div id="edit-tab" class="tab-content" v-show="activeTab === 'edit'">
+        <div class="card edit-card">
+          <h2>탐험가 정보 수정</h2>
+          <div class="form-group">
+            <label for="searchStudent">탐험가 검색:</label>
+            <input
+              type="text"
+              id="searchStudent"
+              v-model="editSearchQuery"
+              placeholder="수정할 탐험가 이름을 입력하세요"
+            />
+            <ul
+              v-if="filteredEditStudents.length > 0 && editSearchQuery"
+              class="search-results"
+            >
+              <li
+                v-for="student in filteredEditStudents"
+                :key="student.id"
+                @click="selectEditStudent(student)"
+              >
+                {{ student.name }} ({{ student.grade }}학년)
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="selectedStudentToEdit.id" class="edit-form">
+            <div class="form-group">
+              <label for="editStudentName">이름:</label>
+              <input type="text" v-model="selectedStudentToEdit.name" />
+            </div>
+            <div class="form-group">
+              <label for="editStudentGrade">학년:</label>
+              <input type="text" v-model="selectedStudentToEdit.grade" />
+            </div>
+            <div class="form-group">
+              <label for="editStudyHours">예상 학습 시간 (분):</label>
+              <input
+                type="number"
+                v-model="selectedStudentToEdit.study_hours"
+              />
+            </div>
+            <div class="form-group">
+              <label for="editSpecialNotes">특이사항:</label>
+              <textarea
+                v-model="selectedStudentToEdit.special_notes"
+                rows="3"
+              ></textarea>
+            </div>
+            <button @click="updateStudent" class="primary-btn">
+              ✔️ 정보 업데이트
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import axios from "axios";
+import StudentCard from "../components/StudentCard.vue";
+
+const ip = "192.168.0.99";
+const API_URL = `http://${ip}:3000/api/students`;
+
+export default {
+  name: "App",
+  components: {
+    StudentCard,
+  },
+  data() {
+    return {
+      activeTab: "info",
+      newStudent: {
+        name: "",
+        grade: "",
+        studyHours: 60,
+        specialNotes: "",
+      },
+      registeredStudents: [],
+      selectedStudent: null,
+      selectedStudentToEdit: {},
+      studentsStatus: [],
+      timers: {},
+      currentPage: 1,
+      itemsPerPage: 10,
+      checkinSearchQuery: "",
+      editSearchQuery: "",
+      checkinStatus: false,
+    };
+  },
+  created() {
+    this.fetchStudents();
+    this.fetchStatus();
+  },
+  computed: {
+    totalPages() {
+      return Math.ceil(this.registeredStudents.length / this.itemsPerPage);
+    },
+    paginatedStudents() {
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.registeredStudents.slice(start, end);
+    },
+    filteredCheckinStudents() {
+      if (!this.checkinSearchQuery) {
+        return this.registeredStudents;
+      }
+      const query = this.checkinSearchQuery.toLowerCase();
+      return this.registeredStudents.filter((student) =>
+        student.name.toLowerCase().includes(query)
+      );
+    },
+    filteredEditStudents() {
+      if (!this.editSearchQuery) {
+        return [];
+      }
+      const query = this.editSearchQuery.toLowerCase();
+      return this.registeredStudents.filter((student) =>
+        student.name.toLowerCase().includes(query)
+      );
+    },
+  },
+  methods: {
+    async fetchStudents() {
+      try {
+        const response = await axios.get(API_URL);
+        this.registeredStudents = response.data;
+      } catch (error) {
+        console.error("Failed to fetch students:", error);
+      }
+    },
+    async fetchStatus() {
+      try {
+        const response = await axios.get(`${API_URL}/status`);
+        this.studentsStatus = response.data.map((student) => ({
+          ...student,
+          timeLeft: 0,
+        }));
+        this.studentsStatus.forEach((student) => {
+          if (student.check_in_time && !student.check_out_time) {
+            this.startTimer(student);
+          }
+        });
+      } catch (error) {
+        console.error("Failed to fetch students status:", error);
+      }
+    },
+    async addStudent() {
+      try {
+        const newStudentData = {
+          name: this.newStudent.name,
+          grade: this.newStudent.grade,
+          study_hours: this.newStudent.studyHours,
+          special_notes: this.newStudent.specialNotes,
+        };
+        await axios.post(API_URL, newStudentData);
+        alert("학생이 등록되었습니다!");
+        this.fetchStudents();
+        this.newStudent = {
+          name: "",
+          grade: "",
+          studyHours: 60,
+          specialNotes: "",
+        };
+      } catch (error) {
+        console.error("Failed to add student:", error);
+        alert("학생 등록에 실패했습니다.");
+      }
+    },
+    selectCheckinStudent(student) {
+      this.selectedStudent = student.id;
+      this.checkinSearchQuery = student.name;
+      this.checkinStatus = true;
+    },
+    selectEditStudent(student) {
+      this.selectedStudentToEdit = { ...student };
+      this.editSearchQuery = "";
+    },
+    async checkIn() {
+      if (!this.selectedStudent) {
+        alert("학생을 선택해주세요.");
+        return;
+      }
+      try {
+        const response = await axios.post(`${API_URL}/checkin`, {
+          studentId: this.selectedStudent,
+        });
+        alert(response.data.message);
+        this.fetchStatus();
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
+      } catch (error) {
+        console.error("Failed to check in:", error);
+        alert(
+          error.response?.data?.error || "입실 처리 중 오류가 발생했습니다."
+        );
+      }
+    },
+    async checkOut() {
+      if (!this.selectedStudent) {
+        alert("학생을 선택해주세요.");
+        return;
+      }
+      try {
+        const response = await axios.post(`${API_URL}/checkout`, {
+          studentId: this.selectedStudent,
+        });
+        alert(response.data.message);
+        this.fetchStatus();
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
+      } catch (error) {
+        console.error("Failed to check out:", error);
+        alert(
+          error.response?.data?.error || "퇴실 처리 중 오류가 발생했습니다."
+        );
+      }
+    },
+    async updateStudent() {
+      if (!this.selectedStudentToEdit.id) {
+        alert("수정할 학생을 선택해주세요.");
+        return;
+      }
+      try {
+        await axios.put(`${API_URL}/${this.selectedStudentToEdit.id}`, {
+          name: this.selectedStudentToEdit.name,
+          grade: this.selectedStudentToEdit.grade,
+          study_hours: this.selectedStudentToEdit.study_hours,
+          special_notes: this.selectedStudentToEdit.special_notes,
+        });
+        alert("학생 정보가 수정되었습니다!");
+        this.fetchStudents();
+      } catch (error) {
+        console.error("Failed to update student:", error);
+        alert("학생 정보 수정에 실패했습니다.");
+      }
+    },
+    startTimer(student) {
+      if (this.timers[student.id]) {
+        clearInterval(this.timers[student.id]);
+      }
+      const checkOutDate = new Date(student.auto_check_out_time);
+      const timerId = setInterval(() => {
+        const now = new Date();
+        const timeLeft = Math.max(0, checkOutDate.getTime() - now.getTime());
+        const targetStudent = this.studentsStatus.find(
+          (s) => s.id === student.id
+        );
+        if (targetStudent) {
+          targetStudent.timeLeft = timeLeft;
+        }
+        if (timeLeft === 0) {
+          clearInterval(timerId);
+          // 알림창으로 변경하여 사용자에게 직접 알립니다.
+          alert(`${student.name}의 예상 학습 시간이 종료되었습니다!`);
+          // 여기서 fetchStatus()를 제거하여 무한 루프를 방지합니다.
+        }
+      }, 1000);
+      this.timers[student.id] = timerId;
+    },
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+      }
+    },
+    prevPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+      }
+    },
+  },
+  beforeUnmount() {
+    for (const timerId in this.timers) {
+      clearInterval(this.timers[timerId]);
+    }
+  },
+};
+</script>
+
+<style scoped>
+/* 기존 스타일은 그대로 유지합니다. */
+/* v-show에 맞게 display:none 규칙을 제거합니다. */
+.tab-content {
+  padding: 20px;
+  border: 2px solid #d4e157;
+  border-radius: 0 0 10px 10px;
+}
+/* v-show는 자동으로 엘리먼트를 숨기므로, 이 CSS 규칙은 필요하지 않습니다. */
+/* .tab-content[v-show] {
+  display: block;
+} */
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #fce4ec;
+  color: #333;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.container {
+  background-color: #fff;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  width: 100%;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.main-title {
+  text-align: center;
+  color: #d81b60;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.tab-btn {
+  padding: 12px 25px;
+  border: none;
+  background-color: #f0f4c3;
+  color: #555;
+  cursor: pointer;
+  font-size: 1.1em;
+  font-weight: bold;
+  transition: background-color 0.3s, color 0.3s;
+  border-radius: 10px 10px 0 0;
+  position: relative;
+  top: 1px;
+}
+
+.tab-btn.active {
+  background-color: #d4e157;
+  color: #444;
+}
+
+.card {
+  background-color: #fff;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  padding: 25px;
+  margin-bottom: 20px;
+}
+
+.info-card {
+  border: 2px dashed #9ccc65;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-weight: bold;
+  color: #66bb6a;
+  margin-bottom: 5px;
+}
+
+.form-group input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1em;
+}
+
+.primary-btn {
+  padding: 12px 25px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.primary-btn:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+.student-list-container {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+#registeredStudentList {
+  list-style-type: none;
+  padding: 0;
+}
+
+#registeredStudentList li {
+  background-color: #e8f5e9;
+  padding: 10px 15px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* 입퇴실 탭 스타일 */
+.checkin-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.checkin-controls select,
+.checkin-controls button {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 1em;
+}
+
+.checkin-btn {
+  background-color: #ff9800;
+  color: white;
+  font-weight: bold;
+  border: none;
+}
+
+.checkout-btn {
+  background-color: #f44336;
+  color: white;
+  font-weight: bold;
+  border: none;
+}
+
+.control-label {
+  font-weight: bold;
+  color: #333;
+}
+
+/* 그리드 및 카드 스타일은 기존과 동일 */
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: #fcfcfc;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.student-card {
+  background-color: #f7f7f7;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  text-align: left;
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  border-left: 6px solid #ffb74d;
+}
+
+.student-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card-name {
+  font-size: 1.3em;
+  font-weight: bold;
+  color: #5d4037;
+  margin-bottom: 5px;
+}
+
+.card-info {
+  font-size: 0.9em;
+  color: #8d6e63;
+}
+
+.card-time {
+  font-size: 0.8em;
+  color: #a1887f;
+  margin-top: 5px;
+}
+
+.status-out {
+  border-left-color: #e57373;
+  background-color: #fff8e1;
+}
+
+.remaining-time-text {
+  font-size: 0.75em;
+  color: #d32f2f;
+  font-weight: bold;
+  margin-top: 5px;
+  text-align: right;
+}
+
+.student-table-container {
+  overflow-x: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  margin-top: 20px;
+}
+
+.student-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  border-radius: 10px;
+}
+
+.student-table-container th {
+  background-color: #d4e157;
+  color: #444;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.student-table-container td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.student-table-container tbody tr:nth-child(even) {
+  background-color: #f9fbe7;
+}
+
+.student-table-container tbody tr:hover {
+  background-color: #f0f4c3;
+  transition: background-color 0.2s;
+}
+
+.student-table-container th:first-child,
+.student-table-container td:first-child {
+  border-radius: 10px 0 0 10px;
+}
+
+.student-table-container th:last-child,
+.student-table-container td:last-child {
+  border-radius: 0 10px 10px 0;
+}
+
+/* 검색 컨테이너 스타일 */
+.search-container {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  margin-bottom: 20px;
+}
+
+.search-container input {
+  width: 80%;
+  padding: 10px 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.search-container input:focus {
+  border-color: #d4e157;
+  box-shadow: 0 0 0 3px rgba(212, 225, 87, 0.5);
+  outline: none;
+}
+
+/* 검색 결과 목록 스타일 */
+.search-results {
+  position: absolute;
+  z-index: 10;
+  width: 100%;
+  max-width: 800px;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.search-results li {
+  padding: 12px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s;
+}
+
+.search-results li:hover {
+  background-color: #f0f4c3;
+}
+
+.search-results li:last-child {
+  border-bottom: none;
+}
+</style>

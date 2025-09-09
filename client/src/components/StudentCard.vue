@@ -20,7 +20,10 @@
       <div class="graph-bar" :style="graphStyle"></div>
     </div>
     <div class="remaining-time-text">{{ remainingTimeText }}</div>
-    <div v-if="student.special_notes && showTooltip" class="tooltip">
+    <div
+      v-if="student.special_notes && showTooltip && fromView === 'manage'"
+      class="tooltip"
+    >
       {{ student.special_notes }}
     </div>
   </div>
@@ -30,6 +33,7 @@
 export default {
   props: {
     student: Object,
+    fromView: String,
   },
   data() {
     return {
@@ -137,5 +141,55 @@ export default {
 .student-card.status-out:hover {
   transform: none;
   box-shadow: none;
+}
+
+.tooltip {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  background-color: #555;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  text-align: left;
+  font-size: 0.85em;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 10;
+}
+
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+.student-card:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-110%);
+}
+
+.graph-bar-wrapper {
+  width: 100%;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.graph-bar {
+  height: 100%;
+  background-color: #ffc107;
+  transition: width 0.5s ease, background-color 0.5s ease;
 }
 </style>
