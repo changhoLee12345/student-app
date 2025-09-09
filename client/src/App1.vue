@@ -27,11 +27,7 @@
         </button>
       </div>
 
-      <div
-        id="info-tab"
-        class="tab-content"
-        :class="{ active: activeTab === 'info' }"
-      >
+      <div id="info-tab" class="tab-content" v-show="activeTab === 'info'">
         <div class="card info-card">
           <h2>새로운 탐험가 등록</h2>
           <div class="form-group">
@@ -101,24 +97,46 @@
       <div
         id="checkin-tab"
         class="tab-content"
-        :class="{ active: activeTab === 'checkin' }"
+        v-show="activeTab === 'checkin'"
       >
         <div class="checkin-controls">
-          <label for="studentNameSelect" class="control-label"
-            >탐험가 선택:</label
-          >
-          <select v-model="selectedStudent">
-            <option disabled value="">탐험가를 선택하세요</option>
-            <option
-              v-for="student in registeredStudents"
-              :key="student.id"
-              :value="student.id"
+          <label for="studentSearch" class="control-label">탐험가 선택:</label>
+          <div class="search-container">
+            <input
+              type="text"
+              id="studentSearch"
+              v-model="checkinSearchQuery"
+              placeholder="학생 이름 검색"
+            />
+            <ul
+              v-if="
+                filteredCheckinStudents.length > 0 &&
+                checkinSearchQuery &&
+                !checkinStatus
+              "
+              class="search-results"
             >
-              {{ student.name }} ({{ student.grade }}학년)
-            </option>
-          </select>
-          <button @click="checkIn" class="action-btn checkin-btn">입실</button>
-          <button @click="checkOut" class="action-btn checkout-btn">
+              <li
+                v-for="student in filteredCheckinStudents"
+                :key="student.id"
+                @click="selectCheckinStudent(student)"
+              >
+                {{ student.name }} ({{ student.grade }}학년)
+              </li>
+            </ul>
+          </div>
+          <button
+            @click="checkIn"
+            class="action-btn checkin-btn"
+            :disabled="!selectedStudent"
+          >
+            입실
+          </button>
+          <button
+            @click="checkOut"
+            class="action-btn checkout-btn"
+            :disabled="!selectedStudent"
+          >
             퇴실
           </button>
         </div>
@@ -131,28 +149,25 @@
         </div>
       </div>
 
-      <div
-        id="edit-tab"
-        class="tab-content"
-        :class="{ active: activeTab === 'edit' }"
-      >
+      <div id="edit-tab" class="tab-content" v-show="activeTab === 'edit'">
         <div class="card edit-card">
           <h2>탐험가 정보 수정</h2>
-
           <div class="form-group">
             <label for="searchStudent">탐험가 검색:</label>
             <input
               type="text"
               id="searchStudent"
-              v-model="searchQuery"
+              v-model="editSearchQuery"
               placeholder="수정할 탐험가 이름을 입력하세요"
-              @focus="searchQuery = ''"
             />
-            <ul v-if="filteredStudents.length > 0" class="search-results">
+            <ul
+              v-if="filteredEditStudents.length > 0 && editSearchQuery"
+              class="search-results"
+            >
               <li
-                v-for="student in filteredStudents"
+                v-for="student in filteredEditStudents"
                 :key="student.id"
-                @click="selectStudentFromSearch(student)"
+                @click="selectEditStudent(student)"
               >
                 {{ student.name }} ({{ student.grade }}학년)
               </li>
@@ -196,7 +211,8 @@
 import axios from "axios";
 import StudentCard from "./components/StudentCard.vue";
 
-let API_URL = "http://localhost:3000/api/students";
+const ip = "192.168.0.99";
+const API_URL = `http://${ip}:3000/api/students`;
 
 export default {
   name: "App",
@@ -213,16 +229,15 @@ export default {
         specialNotes: "",
       },
       registeredStudents: [],
-      selectedStudent: "",
+      selectedStudent: null,
       selectedStudentToEdit: {},
       studentsStatus: [],
       timers: {},
-      // Pagination Data
       currentPage: 1,
       itemsPerPage: 10,
-      searchQuery: "", // New data property to store the search text
-      // We'll also need a way to track the selected student's ID for updating
-      selectedStudentToEditId: null,
+      checkinSearchQuery: "",
+      editSearchQuery: "",
+      checkinStatus: false,
     };
   },
   created() {
@@ -238,11 +253,20 @@ export default {
       const end = start + this.itemsPerPage;
       return this.registeredStudents.slice(start, end);
     },
-    filteredStudents() {
-      if (!this.searchQuery) {
+    filteredCheckinStudents() {
+      if (!this.checkinSearchQuery) {
+        return this.registeredStudents;
+      }
+      const query = this.checkinSearchQuery.toLowerCase();
+      return this.registeredStudents.filter((student) =>
+        student.name.toLowerCase().includes(query)
+      );
+    },
+    filteredEditStudents() {
+      if (!this.editSearchQuery) {
         return [];
       }
-      const query = this.searchQuery.toLowerCase();
+      const query = this.editSearchQuery.toLowerCase();
       return this.registeredStudents.filter((student) =>
         student.name.toLowerCase().includes(query)
       );
@@ -295,6 +319,15 @@ export default {
         alert("학생 등록에 실패했습니다.");
       }
     },
+    selectCheckinStudent(student) {
+      this.selectedStudent = student.id;
+      this.checkinSearchQuery = student.name;
+      this.checkinStatus = true;
+    },
+    selectEditStudent(student) {
+      this.selectedStudentToEdit = { ...student };
+      this.editSearchQuery = "";
+    },
     async checkIn() {
       if (!this.selectedStudent) {
         alert("학생을 선택해주세요.");
@@ -306,6 +339,9 @@ export default {
         });
         alert(response.data.message);
         this.fetchStatus();
+        // 입실처리를 하면 입력하던 부분을 초기화한다.
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
       } catch (error) {
         console.error("Failed to check in:", error);
         alert(
@@ -324,6 +360,9 @@ export default {
         });
         alert(response.data.message);
         this.fetchStatus();
+        // 퇴실처리를 하면 입력하던 부분을 초기화한다.
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
       } catch (error) {
         console.error("Failed to check out:", error);
         alert(
@@ -382,12 +421,6 @@ export default {
         this.currentPage--;
       }
     },
-    selectStudentFromSearch(student) {
-      // Set the selected student for editing
-      this.selectedStudentToEdit = { ...student }; // Use spread operator to create a copy
-      // Clear the search query after selection
-      this.searchQuery = "";
-    },
   },
   beforeUnmount() {
     for (const timerId in this.timers) {
@@ -398,12 +431,21 @@ export default {
 </script>
 
 <style>
-/* All of your CSS from the original `style.css` file should be copied 
-  and pasted directly into this style block.
-*/
+/* 기존 스타일은 그대로 유지합니다. */
+/* v-show에 맞게 display:none 규칙을 제거합니다. */
+.tab-content {
+  padding: 20px;
+  border: 2px solid #d4e157;
+  border-radius: 0 0 10px 10px;
+}
+/* v-show는 자동으로 엘리먼트를 숨기므로, 이 CSS 규칙은 필요하지 않습니다. */
+/* .tab-content[v-show] {
+  display: block;
+} */
+
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #fce4ec; /* 연한 분홍색 배경 */
+  background-color: #fce4ec;
   color: #333;
   padding: 10px;
   display: flex;
@@ -423,7 +465,7 @@ body {
 
 .main-title {
   text-align: center;
-  color: #d81b60; /* 진한 분홍색 */
+  color: #d81b60;
   margin-bottom: 30px;
   font-size: 2.5em;
   font-weight: bold;
@@ -439,7 +481,7 @@ body {
 .tab-btn {
   padding: 12px 25px;
   border: none;
-  background-color: #f0f4c3; /* 연한 노랑색 */
+  background-color: #f0f4c3;
   color: #555;
   cursor: pointer;
   font-size: 1.1em;
@@ -451,22 +493,10 @@ body {
 }
 
 .tab-btn.active {
-  background-color: #d4e157; /* 밝은 노랑색 */
+  background-color: #d4e157;
   color: #444;
 }
 
-.tab-content {
-  display: none;
-  padding: 20px;
-  border: 2px solid #d4e157;
-  border-radius: 0 0 10px 10px;
-}
-
-.tab-content.active {
-  display: block;
-}
-
-/* 카드 스타일 */
 .card {
   background-color: #fff;
   border-radius: 15px;
@@ -476,7 +506,7 @@ body {
 }
 
 .info-card {
-  border: 2px dashed #9ccc65; /* 초록색 점선 테두리 */
+  border: 2px dashed #9ccc65;
 }
 
 .form-group {
@@ -550,7 +580,7 @@ body {
 }
 
 .checkin-btn {
-  background-color: #ff9800; /* 주황색 */
+  background-color: #ff9800;
   color: white;
   font-weight: bold;
   border: none;
@@ -570,11 +600,6 @@ body {
 
 /* 그리드 및 카드 스타일은 기존과 동일 */
 .student-grid {
-  /* 기존 코드 */
-  /* display: grid; */
-  /* grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); */
-
-  /* 한 줄에 5개씩 보이도록 수정 */
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 20px;
@@ -591,7 +616,7 @@ body {
   padding: 20px;
   text-align: left;
   transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-  border-left: 6px solid #ffb74d; /* 입실 상태 */
+  border-left: 6px solid #ffb74d;
 }
 
 .student-card:hover {
@@ -618,7 +643,7 @@ body {
 }
 
 .status-out {
-  border-left-color: #e57373; /* 퇴실 상태 */
+  border-left-color: #e57373;
   background-color: #fff8e1;
 }
 
@@ -647,14 +672,14 @@ body {
 
 .tooltip {
   position: absolute;
-  top: -10px; /* 카드 위로 위치 */
+  top: -10px;
   left: 50%;
   transform: translateX(-50%) translateY(-100%);
   background-color: #555;
   color: white;
   padding: 10px;
   border-radius: 8px;
-  white-space: pre-wrap; /* 줄바꿈 유지 */
+  white-space: pre-wrap;
   text-align: left;
   font-size: 0.85em;
   opacity: 0;
@@ -663,7 +688,6 @@ body {
   z-index: 10;
 }
 
-/* 툴팁 꼬리표 */
 .tooltip::after {
   content: "";
   position: absolute;
@@ -680,49 +704,43 @@ body {
   visibility: visible;
   transform: translateX(-50%) translateY(-110%);
 }
-/* 테이블 컨테이너 스타일 */
+
 .student-table-container {
-  overflow-x: auto; /* 가로 스크롤 허용 */
+  overflow-x: auto;
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   margin-top: 20px;
 }
 
-/* 테이블 기본 스타일 */
 .student-table-container table {
   width: 100%;
-  border-collapse: collapse; /* 셀 경계선 병합 */
+  border-collapse: collapse;
   background-color: #fff;
   border-radius: 10px;
 }
 
-/* 테이블 헤더 스타일 */
 .student-table-container th {
-  background-color: #d4e157; /* 탭 버튼과 동일한 밝은 노랑색 */
+  background-color: #d4e157;
   color: #444;
   padding: 12px 15px;
   text-align: left;
   font-weight: bold;
 }
 
-/* 테이블 바디 셀 스타일 */
 .student-table-container td {
   padding: 12px 15px;
-  border-bottom: 1px solid #f0f0f0; /* 셀 하단 구분선 */
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* 짝수 행 배경색 변경 (줄무늬 효과) */
 .student-table-container tbody tr:nth-child(even) {
-  background-color: #f9fbe7; /* 연한 노랑색 */
+  background-color: #f9fbe7;
 }
 
-/* 테이블 행 호버 효과 */
 .student-table-container tbody tr:hover {
-  background-color: #f0f4c3; /* 호버 시 색상 변경 */
+  background-color: #f0f4c3;
   transition: background-color 0.2s;
 }
 
-/* 첫 번째와 마지막 셀의 둥근 모서리 */
 .student-table-container th:first-child,
 .student-table-container td:first-child {
   border-radius: 10px 0 0 10px;
@@ -732,20 +750,49 @@ body {
 .student-table-container td:last-child {
   border-radius: 0 10px 10px 0;
 }
+
+/* 검색 컨테이너 스타일 */
+.search-container {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  margin-bottom: 20px;
+}
+
+.search-container input {
+  width: 80%;
+  padding: 10px 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.search-container input:focus {
+  border-color: #d4e157;
+  box-shadow: 0 0 0 3px rgba(212, 225, 87, 0.5);
+  outline: none;
+}
+
+/* 검색 결과 목록 스타일 */
 .search-results {
+  position: absolute;
+  z-index: 10;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
   list-style: none;
   padding: 0;
-  margin-top: 5px;
-  max-height: 150px;
-  overflow-y: auto;
+  margin: 0;
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
   background-color: #fff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .search-results li {
-  padding: 10px 15px;
+  padding: 12px 15px;
   cursor: pointer;
   border-bottom: 1px solid #eee;
   transition: background-color 0.2s;
@@ -753,5 +800,9 @@ body {
 
 .search-results li:hover {
   background-color: #f0f4c3;
+}
+
+.search-results li:last-child {
+  border-bottom: none;
 }
 </style>

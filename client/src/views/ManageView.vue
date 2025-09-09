@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="container">
-      <h1 class="main-title">⭐ 꼬마 탐험가들의 학습 기록 ⭐</h1>
+      <h1 class="main-title">⭐ 학생들의 학습 기록 ⭐</h1>
 
       <div class="tabs">
         <button
@@ -29,7 +29,7 @@
 
       <div id="info-tab" class="tab-content" v-show="activeTab === 'info'">
         <div class="card info-card">
-          <h2>새로운 탐험가 등록</h2>
+          <h2>새로운 학생 등록</h2>
           <div class="form-group">
             <label for="infoStudentName">이름:</label>
             <input type="text" v-model="newStudent.name" placeholder="김민준" />
@@ -57,11 +57,11 @@
             ></textarea>
           </div>
           <button @click="addStudent" class="primary-btn">
-            ✨ 탐험가 등록하기
+            ✨ 학생 등록하기
           </button>
         </div>
         <div class="card registered-card">
-          <h2>등록된 탐험가들</h2>
+          <h2>등록된 학생들</h2>
           <div class="student-table-container">
             <table>
               <thead>
@@ -100,7 +100,7 @@
         v-show="activeTab === 'checkin'"
       >
         <div class="checkin-controls">
-          <label for="studentSearch" class="control-label">탐험가 선택:</label>
+          <label for="studentSearch" class="control-label">학생 선택:</label>
           <div class="search-container">
             <input
               type="text"
@@ -139,26 +139,35 @@
           >
             퇴실
           </button>
+          <button
+            @click="checkOut"
+            class="action-btn checkout-cancel-btn"
+            v-show="checkOutStatus"
+          >
+            퇴실취소
+          </button>
         </div>
         <div class="student-grid">
           <student-card
             v-for="student in studentsStatus"
             :key="student.id"
             :student="student"
+            fromView="manage"
+            @select-checkout-student="selectCheckoutStudent"
           />
         </div>
       </div>
 
       <div id="edit-tab" class="tab-content" v-show="activeTab === 'edit'">
         <div class="card edit-card">
-          <h2>탐험가 정보 수정</h2>
+          <h2>학생 정보 수정</h2>
           <div class="form-group">
-            <label for="searchStudent">탐험가 검색:</label>
+            <label for="searchStudent">학생 검색:</label>
             <input
               type="text"
               id="searchStudent"
               v-model="editSearchQuery"
-              placeholder="수정할 탐험가 이름을 입력하세요"
+              placeholder="수정할 학생 이름을 입력하세요"
             />
             <ul
               v-if="filteredEditStudents.length > 0 && editSearchQuery"
@@ -211,7 +220,8 @@
 import axios from "axios";
 import StudentCard from "../components/StudentCard.vue";
 
-const API_URL = "http://localhost:3000/api/students";
+const ip = "192.168.0.24";
+const API_URL = `http://${ip}:3000/api/students`;
 
 export default {
   name: "App",
@@ -237,6 +247,7 @@ export default {
       checkinSearchQuery: "",
       editSearchQuery: "",
       checkinStatus: false,
+      checkOutStatus: false, // 퇴실취소를 처리하기 위한 값.
     };
   },
   created() {
@@ -315,7 +326,11 @@ export default {
         };
       } catch (error) {
         console.error("Failed to add student:", error);
-        alert("학생 등록에 실패했습니다.");
+        alert(
+          `[학생 등록에 실패] => ${
+            error.response?.data?.error || error.message
+          } `
+        );
       }
     },
     selectCheckinStudent(student) {
@@ -338,7 +353,6 @@ export default {
         });
         alert(response.data.message);
         this.fetchStatus();
-        // 입실처리를 하면 입력하던 부분을 초기화한다.
         this.checkinStatus = false;
         this.checkinSearchQuery = "";
       } catch (error) {
@@ -353,12 +367,29 @@ export default {
         alert("학생을 선택해주세요.");
         return;
       }
+      // 퇴실시간이 안된 경우 메세지 보여주기.
+      if (this.selectedStudent) {
+        const student = this.studentsStatus.find(
+          (s) => s.id === this.selectedStudent
+        );
+        if (student && student.timeLeft > 0) {
+          const confirmEarlyCheckout = confirm(
+            `${student.name} 학생의 예상 학습 시간이 아직 남아있습니다. 그래도 퇴실하시겠습니까?`
+          );
+          if (!confirmEarlyCheckout) {
+            return; // 사용자가 취소를 선택한 경우 함수 종료
+          }
+        }
+      }
+
       try {
         const response = await axios.post(`${API_URL}/checkout`, {
           studentId: this.selectedStudent,
         });
         alert(response.data.message);
         this.fetchStatus();
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
       } catch (error) {
         console.error("Failed to check out:", error);
         alert(
@@ -401,8 +432,9 @@ export default {
         }
         if (timeLeft === 0) {
           clearInterval(timerId);
+          // 알림창으로 변경하여 사용자에게 직접 알립니다.
           alert(`${student.name}의 예상 학습 시간이 종료되었습니다!`);
-          this.fetchStatus();
+          // 여기서 fetchStatus()를 제거하여 무한 루프를 방지합니다.
         }
       }, 1000);
       this.timers[student.id] = timerId;
@@ -417,16 +449,39 @@ export default {
         this.currentPage--;
       }
     },
-  },
-  beforeUnmount() {
-    for (const timerId in this.timers) {
-      clearInterval(this.timers[timerId]);
-    }
+    selectCheckoutStudent(student) {
+      console.log("selectCheckoutStudent", student);
+      // 퇴실취소 버튼 보이기.
+      this.checkOutStatus = false;
+      if (
+        !!student.check_out_time &&
+        new Date(student.auto_check_out_time).getTime() > new Date().getTime()
+      ) {
+        // 퇴실시간이 안된 경우 메세지 보여주기.
+        this.checkOutStatus = true;
+      }
+
+      // 퇴실처리 & 퇴실취소 처리 모두 여기서 selectedStudent 세팅.
+      if (this.checkOutStatus || student.timeLeft) {
+        this.selectedStudent = student.id;
+        this.checkinSearchQuery = student.name;
+        this.checkinStatus = true;
+      } else {
+        this.selectedStudent = null;
+        this.checkinSearchQuery = "";
+        // this.checkinStatus = false;
+      }
+    },
+    beforeUnmount() {
+      for (const timerId in this.timers) {
+        clearInterval(this.timers[timerId]);
+      }
+    },
   },
 };
 </script>
 
-<style>
+<style scoped>
 /* 기존 스타일은 그대로 유지합니다. */
 /* v-show에 맞게 display:none 규칙을 제거합니다. */
 .tab-content {
@@ -457,6 +512,7 @@ body {
   padding: 20px;
   width: 100%;
   max-width: 1200px;
+  margin: auto;
 }
 
 .main-title {
@@ -473,7 +529,6 @@ body {
   justify-content: center;
   margin-bottom: 25px;
 }
-
 .tab-btn {
   padding: 12px 25px;
   border: none;
@@ -487,7 +542,6 @@ body {
   position: relative;
   top: 1px;
 }
-
 .tab-btn.active {
   background-color: #d4e157;
   color: #444;
@@ -581,9 +635,14 @@ body {
   font-weight: bold;
   border: none;
 }
-
 .checkout-btn {
   background-color: #f44336;
+  color: white;
+  font-weight: bold;
+  border: none;
+}
+.checkout-cancel-btn {
+  background-color: #62ec40;
   color: white;
   font-weight: bold;
   border: none;
@@ -620,13 +679,6 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
-.card-name {
-  font-size: 1.3em;
-  font-weight: bold;
-  color: #5d4037;
-  margin-bottom: 5px;
-}
-
 .card-info {
   font-size: 0.9em;
   color: #8d6e63;
@@ -643,62 +695,12 @@ body {
   background-color: #fff8e1;
 }
 
-.graph-bar-wrapper {
-  width: 100%;
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 5px;
-  margin-top: 15px;
-  overflow: hidden;
-}
-
-.graph-bar {
-  height: 100%;
-  background-color: #ffc107;
-  transition: width 0.5s ease, background-color 0.5s ease;
-}
-
 .remaining-time-text {
   font-size: 0.75em;
   color: #d32f2f;
   font-weight: bold;
   margin-top: 5px;
   text-align: right;
-}
-
-.tooltip {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-100%);
-  background-color: #555;
-  color: white;
-  padding: 10px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-  text-align: left;
-  font-size: 0.85em;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  z-index: 10;
-}
-
-.tooltip::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: #555 transparent transparent transparent;
-}
-
-.student-card:hover .tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(-110%);
 }
 
 .student-table-container {
@@ -775,6 +777,7 @@ body {
   position: absolute;
   z-index: 10;
   width: 100%;
+  max-width: 800px;
   max-height: 200px;
   overflow-y: auto;
   list-style: none;
