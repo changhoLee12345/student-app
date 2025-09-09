@@ -139,6 +139,13 @@
           >
             퇴실
           </button>
+          <button
+            @click="checkOut"
+            class="action-btn checkout-cancel-btn"
+            v-show="checkOutStatus"
+          >
+            퇴실취소
+          </button>
         </div>
         <div class="student-grid">
           <student-card
@@ -213,7 +220,7 @@
 import axios from "axios";
 import StudentCard from "../components/StudentCard.vue";
 
-const ip = "192.168.0.99";
+const ip = "192.168.0.178";
 const API_URL = `http://${ip}:3000/api/students`;
 
 export default {
@@ -240,6 +247,7 @@ export default {
       checkinSearchQuery: "",
       editSearchQuery: "",
       checkinStatus: false,
+      checkOutStatus: false, // 퇴실취소를 처리하기 위한 값.
     };
   },
   created() {
@@ -318,7 +326,11 @@ export default {
         };
       } catch (error) {
         console.error("Failed to add student:", error);
-        alert("학생 등록에 실패했습니다.");
+        alert(
+          `[학생 등록에 실패] => ${
+            error.response?.data?.error || error.message
+          } `
+        );
       }
     },
     selectCheckinStudent(student) {
@@ -355,6 +367,21 @@ export default {
         alert("학생을 선택해주세요.");
         return;
       }
+      // 퇴실시간이 안된 경우 메세지 보여주기.
+      if (this.selectedStudent) {
+        const student = this.studentsStatus.find(
+          (s) => s.id === this.selectedStudent
+        );
+        if (student && student.timeLeft > 0) {
+          const confirmEarlyCheckout = confirm(
+            `${student.name} 학생의 예상 학습 시간이 아직 남아있습니다. 그래도 퇴실하시겠습니까?`
+          );
+          if (!confirmEarlyCheckout) {
+            return; // 사용자가 취소를 선택한 경우 함수 종료
+          }
+        }
+      }
+
       try {
         const response = await axios.post(`${API_URL}/checkout`, {
           studentId: this.selectedStudent,
@@ -424,15 +451,32 @@ export default {
     },
     selectCheckoutStudent(student) {
       console.log("selectCheckoutStudent", student);
-      this.selectedStudent = student.id;
-      this.checkinSearchQuery = student.name;
-      this.checkinStatus = true;
+      // 퇴실취소 버튼 보이기.
+      this.checkOutStatus = false;
+      if (
+        !!student.check_out_time &&
+        new Date(student.auto_check_out_time).getTime() > new Date().getTime()
+      ) {
+        // 퇴실시간이 안된 경우 메세지 보여주기.
+        this.checkOutStatus = true;
+      }
+
+      // 퇴실처리 & 퇴실취소 처리 모두 여기서 selectedStudent 세팅.
+      if (this.checkOutStatus || student.timeLeft) {
+        this.selectedStudent = student.id;
+        this.checkinSearchQuery = student.name;
+        this.checkinStatus = true;
+      } else {
+        this.selectedStudent = null;
+        this.checkinSearchQuery = "";
+        // this.checkinStatus = false;
+      }
     },
-  },
-  beforeUnmount() {
-    for (const timerId in this.timers) {
-      clearInterval(this.timers[timerId]);
-    }
+    beforeUnmount() {
+      for (const timerId in this.timers) {
+        clearInterval(this.timers[timerId]);
+      }
+    },
   },
 };
 </script>
@@ -591,9 +635,14 @@ body {
   font-weight: bold;
   border: none;
 }
-
 .checkout-btn {
   background-color: #f44336;
+  color: white;
+  font-weight: bold;
+  border: none;
+}
+.checkout-cancel-btn {
+  background-color: #62ec40;
   color: white;
   font-weight: bold;
   border: none;

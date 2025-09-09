@@ -4,12 +4,9 @@
     :class="{ 'status-out': isCheckOut }"
     @mouseenter="showTooltip = true"
     @mouseleave="showTooltip = false"
+    @click="selectCheckoutStudent(student)"
   >
-    <div
-      class="card-name"
-      :class="{ 'blinking-text': isTimeLow }"
-      @click="selectCheckoutStudent(student)"
-    >
+    <div class="card-name" :class="{ 'blinking-text': isTimeLow }">
       {{ student.name }}
     </div>
     <div class="card-info">
@@ -102,9 +99,14 @@ export default {
   },
   methods: {
     selectCheckoutStudent(student) {
-      if (this.fromView === "manage" && !this.isCheckOut) {
-        this.$emit("select-checkout-student", student);
-      }
+      // if (
+      //   this.fromView === "manage" &&
+      //   (!this.isCheckOut ||
+      //     new Date(this.student.auto_check_out_time).getTime() >
+      //       new Date().getTime())
+      // ) {
+      this.$emit("select-checkout-student", student);
+      // }
     },
   },
 };
@@ -149,7 +151,7 @@ export default {
   color: #757575; /* 텍스트 색상 연하게 */
   opacity: 0.8;
   box-shadow: none;
-  pointer-events: none; /* 클릭 이벤트 비활성화 */
+  /* pointer-events: none; 클릭 이벤트 비활성화 */
 }
 
 /* 호버 효과 제거 */

@@ -45,16 +45,31 @@ router.get("/status", (req, res) => {
 // 학생 정보 추가
 router.post("/", (req, res) => {
   const { name, grade, study_hours, special_notes } = req.body;
-  const query =
-    "INSERT INTO students (name, grade, study_hours, special_notes) VALUES (?, ?, ?, ?)";
-  connection.query(
-    query,
-    [name, grade, study_hours, special_notes],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ message: "학생이 성공적으로 등록되었습니다." });
+  const checkQuery = `
+        SELECT id FROM students
+        WHERE name = ? AND grade = ?
+    `;
+  connection.query(checkQuery, [name, grade], (err, results) => {
+    if (err)
+      return res
+        .status(500)
+        .json({ error: "데이터베이스 오류가 발생했습니다." });
+
+    if (results.length > 0) {
+      return res.status(409).json({ error: "이 학생은 이미 등록되었습니다." });
     }
-  );
+
+    const query =
+      "INSERT INTO students (name, grade, study_hours, special_notes) VALUES (?, ?, ?, ?)";
+    connection.query(
+      query,
+      [name, grade, study_hours, special_notes],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({ message: "학생이 성공적으로 등록되었습니다." });
+      }
+    );
+  });
 });
 
 // 학생 정보 수정 (새로운 기능)

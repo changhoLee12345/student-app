@@ -44,7 +44,7 @@
 import axios from "axios";
 import StudentCard from "../components/StudentCard.vue";
 
-const ip = "192.168.0.99";
+const ip = "192.168.0.178";
 const API_URL = `http://${ip}:3000/api/students`;
 
 export default {
@@ -138,6 +138,8 @@ export default {
         }
       }, 1000);
     },
+
+    // 추가되는 메소드.
   },
   beforeUnmount() {
     if (this.intervalId) clearInterval(this.intervalId);
