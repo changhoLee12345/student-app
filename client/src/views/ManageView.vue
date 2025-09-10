@@ -25,8 +25,16 @@
         >
           ✏️ 학생 정보 수정
         </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'makeup' }"
+          @click="activeTab = 'makeup'"
+        >
+          ⏰ 보강 시간
+        </button>
       </div>
 
+      <!-- 1.학생정보등록 탭 시작. -->
       <div id="info-tab" class="tab-content" v-show="activeTab === 'info'">
         <div class="card info-card">
           <h2>새로운 학생 등록</h2>
@@ -93,7 +101,9 @@
           </div>
         </div>
       </div>
+      <!-- 1.학생정보등록 탭 종료. -->
 
+      <!-- 2.입실/퇴실등록 탭 시작. -->
       <div
         id="checkin-tab"
         class="tab-content"
@@ -157,7 +167,9 @@
           />
         </div>
       </div>
+      <!-- 2.입실/퇴실등록 탭 종료. -->
 
+      <!-- 3.학생정보수정 탭 시작. -->
       <div id="edit-tab" class="tab-content" v-show="activeTab === 'edit'">
         <div class="card edit-card">
           <h2>학생 정보 수정</h2>
@@ -212,19 +224,57 @@
           </div>
         </div>
       </div>
+      <!-- 3.학생정보수정 탭 종료. -->
+
+      <!-- 4.보강시간 탭 시작. -->
+      <div id="makeup-tab" class="tab-content" v-show="activeTab === 'makeup'">
+        <div class="card makeup-card">
+          <h2>⏰ 보강 정보</h2>
+          <div v-if="makeUpData.length === 0">
+            <p>보강이 필요한 학생이 없습니다.</p>
+          </div>
+          <div v-else class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th>학생 이름</th>
+                  <th>보강 시간 (분)</th>
+                  <th>입실 시간</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in makeUpData" :key="item.id">
+                  <td>{{ formatDate(item.created_at) }}</td>
+                  <td>{{ getStudentName(item.student_id) }}</td>
+                  <td>{{ item.make_up_minutes }}</td>
+                  <td>{{ getCheckInTime(item.attendance_id) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- 4.보강시간 탭 종료. -->
     </div>
+    <!-- end of .container -->
   </div>
+  <!-- end of #app -->
 </template>
 
 <script>
+import common from "../mixins/common.js";
+
 import axios from "axios";
 import StudentCard from "../components/StudentCard.vue";
 
-const ip = "192.168.0.24";
-const API_URL = `http://${ip}:3000/api/students`;
+const IP = common.data().server_ip; //"192.168.0.178";
+const API_URL = `http://${IP}:3000/api/students`;
+console.log("API_URL:", API_URL);
 
 export default {
   name: "App",
+  mixins: [common],
   components: {
     StudentCard,
   },
@@ -248,11 +298,13 @@ export default {
       editSearchQuery: "",
       checkinStatus: false,
       checkOutStatus: false, // 퇴실취소를 처리하기 위한 값.
+      makeUpData: [],
     };
   },
   created() {
     this.fetchStudents();
     this.fetchStatus();
+    this.fetchMakeUpData();
   },
   computed: {
     totalPages() {
@@ -283,6 +335,7 @@ export default {
     },
   },
   methods: {
+    // 학생정보 가져오기.
     async fetchStudents() {
       try {
         const response = await axios.get(API_URL);
@@ -291,6 +344,7 @@ export default {
         console.error("Failed to fetch students:", error);
       }
     },
+    // 입실퇴실 현황 가져오기.
     async fetchStatus() {
       try {
         const response = await axios.get(`${API_URL}/status`);
@@ -307,6 +361,16 @@ export default {
         console.error("Failed to fetch students status:", error);
       }
     },
+    // 보강정보 가져오기.
+    async fetchMakeUpData() {
+      try {
+        const response = await axios.get(`${API_URL}/makeups`);
+        this.makeUpData = response.data;
+      } catch (error) {
+        console.error("Failed to fetch makeup data:", error);
+      }
+    },
+    // 학생 등록.
     async addStudent() {
       try {
         const newStudentData = {
@@ -333,15 +397,18 @@ export default {
         );
       }
     },
+    // 학생 선택.
     selectCheckinStudent(student) {
       this.selectedStudent = student.id;
       this.checkinSearchQuery = student.name;
       this.checkinStatus = true;
     },
+    // 학생 수정 선택.
     selectEditStudent(student) {
       this.selectedStudentToEdit = { ...student };
       this.editSearchQuery = "";
     },
+    // 입실 처리.
     async checkIn() {
       if (!this.selectedStudent) {
         alert("학생을 선택해주세요.");
@@ -362,6 +429,7 @@ export default {
         );
       }
     },
+    // 퇴실 처리.
     async checkOut() {
       if (!this.selectedStudent) {
         alert("학생을 선택해주세요.");
@@ -397,6 +465,7 @@ export default {
         );
       }
     },
+    // 학생 정보 수정.
     async updateStudent() {
       if (!this.selectedStudentToEdit.id) {
         alert("수정할 학생을 선택해주세요.");
@@ -416,6 +485,7 @@ export default {
         alert("학생 정보 수정에 실패했습니다.");
       }
     },
+    // 타이머 시작.
     startTimer(student) {
       if (this.timers[student.id]) {
         clearInterval(this.timers[student.id]);
@@ -439,16 +509,19 @@ export default {
       }, 1000);
       this.timers[student.id] = timerId;
     },
+    // 페이지 이동.
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
       }
     },
+    // 이전 페이지 이동.
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--;
       }
     },
+    // 학생 선택 (퇴실).
     selectCheckoutStudent(student) {
       console.log("selectCheckoutStudent", student);
       // 퇴실취소 버튼 보이기.
@@ -460,7 +533,6 @@ export default {
         // 퇴실시간이 안된 경우 메세지 보여주기.
         this.checkOutStatus = true;
       }
-
       // 퇴실처리 & 퇴실취소 처리 모두 여기서 selectedStudent 세팅.
       if (this.checkOutStatus || student.timeLeft) {
         this.selectedStudent = student.id;
@@ -472,11 +544,33 @@ export default {
         // this.checkinStatus = false;
       }
     },
-    beforeUnmount() {
-      for (const timerId in this.timers) {
-        clearInterval(this.timers[timerId]);
-      }
+    getStudentName(studentId) {
+      const student = this.registeredStudents.find((s) => s.id === studentId);
+      return student ? student.name : "알 수 없음";
     },
+    getCheckInTime(attendanceId) {
+      return "정보 없음" + attendanceId;
+      // const attendance = this.attendanceData.find((a) => a.id === attendanceId);
+      // if (!attendance || !attendance.check_in_time) {
+      //   return "정보 없음";
+      // }
+      // const checkInDate = new Date(attendance.check_in_time);
+      // return checkInDate.toLocaleTimeString("ko-KR", {
+      //   hour: "2-digit",
+      //   minute: "2-digit",
+      //   second: "2-digit",
+      // });
+    },
+    formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("ko-KR");
+    },
+  },
+  // 언마운트 시 타이머 정리.
+  beforeUnmount() {
+    for (const timerId in this.timers) {
+      clearInterval(this.timers[timerId]);
+    }
   },
 };
 </script>
@@ -803,5 +897,41 @@ body {
 
 .search-results li:last-child {
   border-bottom: none;
+}
+
+/* ManagerView.vue의 style 태그 안에 추가 */
+.makeup-card {
+  border: 2px dashed #ff9800; /* 오렌지색 테두리로 강조 */
+}
+
+.table-container {
+  overflow-x: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  margin-top: 20px;
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  border-radius: 10px;
+}
+
+.table-container th {
+  background-color: #ffb74d; /* 주황색 헤더 */
+  color: #fff;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.table-container td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table-container tbody tr:nth-child(even) {
+  background-color: #fff3e0; /* 연한 주황색 배경 */
 }
 </style>

@@ -41,15 +41,19 @@
 </template>
 
 <script>
+import common from "../mixins/common.js";
+
 import axios from "axios";
 import StudentCard from "../components/StudentCard.vue";
 
-const ip = "192.168.0.24";
-const API_URL = `http://${ip}:3000/api/students`;
+const IP = common.data().server_ip; //"192.168.0.178";
+const API_URL = `http://${IP}:3000/api/students`;
+console.log("API_URL:", API_URL);
 
 export default {
   name: "StatusView",
   components: { StudentCard },
+  mixins: [common],
   data() {
     return {
       activeTab: "checkin", // 현재 선택된 탭
