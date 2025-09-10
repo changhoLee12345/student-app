@@ -99,14 +99,7 @@ export default {
   },
   methods: {
     selectCheckoutStudent(student) {
-      // if (
-      //   this.fromView === "manage" &&
-      //   (!this.isCheckOut ||
-      //     new Date(this.student.auto_check_out_time).getTime() >
-      //       new Date().getTime())
-      // ) {
       this.$emit("select-checkout-student", student);
-      // }
     },
   },
 };

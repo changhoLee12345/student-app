@@ -241,6 +241,7 @@
                   <th>학생 이름</th>
                   <th>보강 시간 (분)</th>
                   <th>입실 시간</th>
+                  <th>실행</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,6 +250,14 @@
                   <td>{{ getStudentName(item.student_id) }}</td>
                   <td>{{ item.make_up_minutes }}</td>
                   <td>{{ getCheckInTime(item.attendance_id) }}</td>
+                  <td>
+                    <button
+                      class="action-btn makeup-btn"
+                      @click="createMakeUp(item.student_id)"
+                    >
+                      보강
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -270,7 +279,6 @@ import StudentCard from "../components/StudentCard.vue";
 
 const IP = common.data().server_ip; //"192.168.0.178";
 const API_URL = `http://${IP}:3000/api/students`;
-console.log("API_URL:", API_URL);
 
 export default {
   name: "App",
@@ -429,6 +437,24 @@ export default {
         );
       }
     },
+    // 보강처리.  입실처리와 같기 때문에 checkIn() 함수 재사용.
+    async createMakeUp(student_id) {
+      try {
+        const response = await axios.post(`${API_URL}/checkin`, {
+          studentId: student_id,
+        });
+        alert(response.data.message);
+        this.fetchStatus();
+        this.fetchMakeUpData(); // 보강 데이터 새로고침
+        this.checkinStatus = false;
+        this.checkinSearchQuery = "";
+      } catch (error) {
+        console.error("Failed to check in:", error);
+        alert(
+          error.response?.data?.error || "보강 처리 중 오류가 발생했습니다."
+        );
+      }
+    },
     // 퇴실 처리.
     async checkOut() {
       if (!this.selectedStudent) {
@@ -456,6 +482,7 @@ export default {
         });
         alert(response.data.message);
         this.fetchStatus();
+        this.fetchMakeUpData();
         this.checkinStatus = false;
         this.checkinSearchQuery = "";
       } catch (error) {
@@ -534,7 +561,7 @@ export default {
         this.checkOutStatus = true;
       }
       // 퇴실처리 & 퇴실취소 처리 모두 여기서 selectedStudent 세팅.
-      if (this.checkOutStatus || student.timeLeft) {
+      if (this.checkOutStatus || student.timeLeft || !student.check_out_time) {
         this.selectedStudent = student.id;
         this.checkinSearchQuery = student.name;
         this.checkinStatus = true;
@@ -933,5 +960,19 @@ body {
 
 .table-container tbody tr:nth-child(even) {
   background-color: #fff3e0; /* 연한 주황색 배경 */
+}
+
+.table-container button {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 1em;
+}
+
+.makeup-btn {
+  background-color: #177a2c;
+  color: white;
+  font-weight: bold;
+  border: none;
 }
 </style>
