@@ -44,7 +44,7 @@ limit 1;
 
 update make_up_hours
 set is_completed = true
-where id = 1;
+where id = 5;
 
 SELECT s.id,
        s.name,
