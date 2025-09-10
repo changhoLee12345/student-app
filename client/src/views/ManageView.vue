@@ -129,7 +129,7 @@
               <li
                 v-for="student in filteredCheckinStudents"
                 :key="student.id"
-                @click="selectCheckinStudent(student)"
+                @click.capture="selectCheckinStudent(student)"
               >
                 {{ student.name }} ({{ student.grade }}학년)
               </li>
@@ -853,7 +853,7 @@ body {
   background-color: #d4e157;
   color: #444;
   padding: 12px 15px;
-  text-align: left;
+  text-align: center;
   font-weight: bold;
 }
 
@@ -960,7 +960,7 @@ body {
   background-color: #ffb74d; /* 주황색 헤더 */
   color: #fff;
   padding: 12px 15px;
-  text-align: left;
+  text-align: center;
   font-weight: bold;
 }
 

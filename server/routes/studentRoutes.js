@@ -4,7 +4,7 @@ const connection = require("../db");
 
 // 모든 학생 정보 조회 (등록 탭용)
 router.get("/", (req, res) => {
-  const query = "SELECT * FROM students";
+  const query = "SELECT * FROM students order by name";
   connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -203,9 +203,12 @@ router.post("/checkout", (req, res) => {
     const checkOutTime = now > autoCheckOutTime ? autoCheckOutTime : now;
 
     const durationMs = checkOutTime.getTime() - checkInTime.getTime();
+    console.log(checkOutTime.getTime(), checkInTime.getTime());
+    // 1757515395000,
+    // 1757513715000
     const durationMinutes = Math.floor(durationMs / 60000);
 
-    if (durationMs > 0) {
+    if (checkOutTime > now) {
       // 보강정보생성.
       const makeUpMinutes = Math.floor(
         (autoCheckOutTime.getTime() - now.getTime()) / 60000 + 1
