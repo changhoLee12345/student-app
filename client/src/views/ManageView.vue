@@ -7,28 +7,28 @@
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'info' }"
-          @click="activeTab = 'info'"
+          @click="switchTab('info')"
         >
           📝 학생 정보 등록
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'checkin' }"
-          @click="activeTab = 'checkin'"
+          @click="switchTab('checkin')"
         >
           🚀 입퇴실 관리
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'edit' }"
-          @click="activeTab = 'edit'"
+          @click="switchTab('edit')"
         >
           ✏️ 학생 정보 수정
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'makeup' }"
-          @click="activeTab = 'makeup'"
+          @click="switchTab('makeup')"
         >
           ⏰ 보강 시간
         </button>
@@ -311,8 +311,8 @@ export default {
   },
   created() {
     this.fetchStudents();
-    this.fetchStatus();
-    this.fetchMakeUpData();
+    // this.fetchStatus();
+    // this.fetchMakeUpData();
   },
   computed: {
     totalPages() {
@@ -343,6 +343,17 @@ export default {
     },
   },
   methods: {
+    // activeTab 변경.
+    switchTab(tabName) {
+      this.activeTab = tabName;
+      if (tabName === "info") {
+        this.fetchStudents();
+      } else if (tabName === "checkin") {
+        this.fetchStatus();
+      } else if (tabName === "makeup") {
+        this.fetchMakeUpData();
+      }
+    },
     // 학생정보 가져오기.
     async fetchStudents() {
       try {

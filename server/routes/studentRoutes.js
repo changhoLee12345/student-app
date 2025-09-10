@@ -16,7 +16,7 @@ router.get("/", (req, res) => {
 
 // 보강목록에 보여줄 정보.
 router.get("/makeups", (req, res) => {
-  const query = `select * from make_up_hours where is_completed = 0`;
+  const query = `select * from make_up_hours where is_completed = 0 order by created_at asc`;
   connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -205,7 +205,7 @@ router.post("/checkout", (req, res) => {
     const durationMs = checkOutTime.getTime() - checkInTime.getTime();
     const durationMinutes = Math.floor(durationMs / 60000);
 
-    if (durationMs) {
+    if (durationMs > 0) {
       // 보강정보생성.
       const makeUpMinutes = Math.floor(
         (autoCheckOutTime.getTime() - now.getTime()) / 60000 + 1

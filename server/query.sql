@@ -42,6 +42,8 @@ from (select make_up_minutes, 1 as priority from make_up_hours where student_id 
 order by a.priority asc
 limit 1;
 
+select * from make_up_hours where is_completed = 0 order by created_at asc;
+
 update make_up_hours
 set is_completed = true
 where id = 5;
