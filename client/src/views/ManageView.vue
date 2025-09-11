@@ -434,7 +434,7 @@ export default {
         return;
       }
       try {
-        const response = await axios.post(`${API_URL}/checkin`, {
+        const response = await axios.post(`${API_URL}/checkin/c`, {
           studentId: this.selectedStudent,
         });
         alert(response.data.message);
@@ -451,7 +451,7 @@ export default {
     // 보강처리.  입실처리와 같기 때문에 checkIn() 함수 재사용.
     async createMakeUp(student_id) {
       try {
-        const response = await axios.post(`${API_URL}/checkin`, {
+        const response = await axios.post(`${API_URL}/checkin/m`, {
           studentId: student_id,
         });
         alert(response.data.message);

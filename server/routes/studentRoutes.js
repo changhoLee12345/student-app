@@ -103,8 +103,9 @@ router.put("/:id", (req, res) => {
 });
 
 // 학생 입실 처리/ 보강처리.
-router.post("/checkin", (req, res) => {
+router.post("/checkin/:type", (req, res) => {
   const { studentId } = req.body;
+  const type = req.params.type; // c(heckin)/ m(akeup)
 
   const checkQuery = `
         SELECT id FROM attendance 
@@ -112,7 +113,6 @@ router.post("/checkin", (req, res) => {
         AND DATE(check_in_time) = CURDATE()
         AND check_out_time IS NULL;
     `;
-
   connection.query(checkQuery, [studentId], (err, results) => {
     if (err)
       return res
@@ -125,61 +125,57 @@ router.post("/checkin", (req, res) => {
         .json({ error: "이 학생은 이미 오늘 입실 처리되었습니다." });
     }
 
-    const getStudyHoursQuery = `
-    select a.study_hours, a.id
-    from (select id, make_up_minutes as study_hours, 1 as priority from make_up_hours where student_id = ? and is_completed = 0
-          union all
-          select 0 as id, study_hours, 2 as priority from students where id = ?) a
-    order by a.priority asc
-    limit 1`;
-    connection.query(
-      getStudyHoursQuery,
-      [studentId, studentId],
-      (err, studentResults) => {
-        if (err)
-          return res
-            .status(500)
-            .json({ error: "학생 정보 조회 중 오류가 발생했습니다." });
+    const sql =
+      type === "m"
+        ? "select id, make_up_minutes as study_hours, 1 as priority from make_up_hours where student_id = ? and is_completed = 0"
+        : "select 0 as id, study_hours, 2 as priority from students where id = ?";
 
-        if (studentResults.length === 0) {
-          return res.status(404).json({ error: "학생을 찾을 수 없습니다." });
-        }
+    const getStudyHoursQuery = `select a.study_hours, a.id
+                                from (${sql}) a
+                                order by a.priority asc
+                                limit 1`;
+    connection.query(getStudyHoursQuery, [studentId], (err, studentResults) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "학생 정보 조회 중 오류가 발생했습니다." });
 
-        const studyHours = studentResults[0].study_hours;
-        const makeUpId = studentResults[0].id;
-        const checkInTime = new Date();
-        const autoCheckOutTime = new Date(
-          checkInTime.getTime() + studyHours * 60000
-        );
-
-        const insertQuery =
-          "INSERT INTO attendance (student_id, check_in_time, auto_check_out_time) VALUES (?, ?, ?)";
-        connection.query(
-          insertQuery,
-          [studentId, checkInTime, autoCheckOutTime],
-          (err, result) => {
-            if (err)
-              return res
-                .status(500)
-                .json({ error: "입실 처리 중 오류가 발생했습니다." });
-
-            if (makeUpId > 0) {
-              const updateQuery =
-                "update make_up_hours set is_completed = 1 where id = ?";
-              connection.query(updateQuery, [makeUpId], (err, result) => {
-                if (err)
-                  return res
-                    .status(500)
-                    .json({ error: "보강 처리 중 오류가 발생했습니다." });
-              });
-              res.status(201).json({ message: "보강 처리가 완료되었습니다!" });
-            } else {
-              res.status(201).json({ message: "입실 처리가 완료되었습니다!" });
-            }
-          } //보강정보 완료처리.
-        ); // 입실처리.
+      if (studentResults.length === 0) {
+        return res.status(404).json({ error: "학생을 찾을 수 없습니다." });
       }
-    );
+
+      const studyHours = studentResults[0].study_hours;
+      const makeUpId = studentResults[0].id;
+      const checkInTime = new Date();
+      const autoCheckOutTime = new Date(
+        checkInTime.getTime() + studyHours * 60000
+      );
+
+      const insertQuery = `INSERT INTO attendance (student_id, check_in_time, auto_check_out_time) VALUES (?, ?, ?)`;
+      connection.query(
+        insertQuery,
+        [studentId, checkInTime, autoCheckOutTime],
+        (err, result) => {
+          if (err)
+            return res
+              .status(500)
+              .json({ error: "입실 처리 중 오류가 발생했습니다." });
+
+          if (makeUpId > 0) {
+            const updateQuery = `update make_up_hours set is_completed = 1 where id = ?`;
+            connection.query(updateQuery, [makeUpId], (err, result) => {
+              if (err)
+                return res
+                  .status(500)
+                  .json({ error: "보강 처리 중 오류가 발생했습니다." });
+            });
+            res.status(201).json({ message: "보강 처리가 완료되었습니다!" });
+          } else {
+            res.status(201).json({ message: "입실 처리가 완료되었습니다!" });
+          }
+        } //보강정보 완료처리.
+      ); // 입실처리.
+    });
   });
 }); // end of post('/checkin')
 
@@ -188,12 +184,17 @@ router.post("/checkout", (req, res) => {
   const { studentId } = req.body;
   const now = new Date(); // 퇴실시간.
 
-  const findQuery =
-    "SELECT id, check_in_time, auto_check_out_time FROM attendance WHERE student_id = ? AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1";
+  const findQuery = `SELECT id, check_in_time, auto_check_out_time 
+                     FROM attendance 
+                     WHERE student_id = ? 
+                     AND check_out_time IS NULL 
+                     ORDER BY check_in_time DESC 
+                     LIMIT 1`;
   connection.query(findQuery, [studentId], (err, results) => {
     if (err || results.length === 0) {
       return res.status(404).json({ error: "학생이 입실 상태가 아닙니다." });
     }
+
     const attendanceId = results[0].id;
     const checkInTime = new Date(results[0].check_in_time);
     const autoCheckOutTime = new Date(results[0].auto_check_out_time); // 계산체크아웃시간.
@@ -202,38 +203,60 @@ router.post("/checkout", (req, res) => {
     // 수업시간이 남아있으면 보강시간을 생성해서 보강정보를 보여주도록 한다.
     const checkOutTime = now > autoCheckOutTime ? autoCheckOutTime : now;
 
-    const durationMs = checkOutTime.getTime() - checkInTime.getTime();
-    console.log(checkOutTime.getTime(), checkInTime.getTime());
-    // 1757515395000,
-    // 1757513715000
+    const durationMs = checkOutTime.getTime() - checkInTime.getTime(); // 밀리세컨드 를 아래의 분단위로 변경.
     const durationMinutes = Math.floor(durationMs / 60000);
 
-    if (checkOutTime > now) {
-      // 보강정보생성.
-      const makeUpMinutes = Math.floor(
-        (autoCheckOutTime.getTime() - now.getTime()) / 60000 + 1
-      );
-      const makeUpQuery =
-        "insert into make_up_hours (student_id, attendance_id, make_up_minutes) values (?,?,?)";
-      connection.query(
-        makeUpQuery,
-        [studentId, attendanceId, makeUpMinutes],
-        (err, result) => {
-          if (err) return res.status(500).json({ error: err.message });
-        }
-      );
-    }
-
-    const updateQuery =
-      "UPDATE attendance SET check_out_time = ?, study_duration_minutes = ? WHERE id = ?";
+    const updateQuery = `UPDATE attendance SET check_out_time = ?, study_duration_minutes = ? WHERE id = ?`;
     connection.query(
       updateQuery,
       [checkOutTime, durationMinutes, attendanceId],
       (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "퇴실 처리가 완료되었습니다!" });
       }
     );
+
+    // 보강정보생성.
+    if (autoCheckOutTime.getTime() > checkOutTime.getTime()) {
+      // 이전에 보강정보가 있는지 확인하고 새로운 보강시간에 합치기.
+      const checkMakeQuery = `select ifnull(sum(make_up_minutes), 0) as  make_up_minutes
+                              from make_up_hours
+                              where student_id = ?
+                              and   is_completed = 0`;
+      connection.query(checkMakeQuery, [studentId], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const remainedMakeup = result[0].make_up_minutes;
+        if (remainedMakeup) {
+          // 기존보강정보는 completed로 변경.
+          const makeUpEndQuery = `update make_up_hours
+                                  set is_completed = true
+                                  where student_id = ?
+                                  and   is_completed = false`;
+          connection.query(makeUpEndQuery, [studentId], (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+          });
+        }
+
+        const makeUpMinutes =
+          parseInt(remainedMakeup) +
+          Math.floor((autoCheckOutTime.getTime() - now.getTime()) / 60000 + 1);
+
+        const makeUpQuery = `insert into make_up_hours (student_id, attendance_id, make_up_minutes) values (?,?,?)`;
+        connection.query(
+          makeUpQuery,
+          [studentId, attendanceId, makeUpMinutes],
+          (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            res.json({
+              message: "보강정보를 생성 후 퇴실 처리가 완료되었습니다!",
+            });
+          }
+        );
+      });
+    } else {
+      res.json({ message: "퇴실 처리가 완료되었습니다!" });
+    }
   });
 });
 
