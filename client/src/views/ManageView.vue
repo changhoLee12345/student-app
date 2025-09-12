@@ -211,6 +211,16 @@
                 v-model="selectedStudentToEdit.study_hours"
               />
             </div>
+            <div class="form-group checkbox-group">
+              <label for="editIsEnrolled">재학 중:</label>
+              <input
+                type="checkbox"
+                id="editIsEnrolled"
+                v-model="selectedStudentToEdit.is_exist"
+                true-value="1"
+                false-value="0"
+              />
+            </div>
             <div class="form-group">
               <label for="editSpecialNotes">특이사항:</label>
               <textarea
@@ -295,6 +305,7 @@ export default {
         studyHours: 60,
         specialNotes: "",
       },
+      allStudents: [],
       registeredStudents: [],
       selectedStudent: null,
       selectedStudentToEdit: {},
@@ -337,7 +348,7 @@ export default {
         return [];
       }
       const query = this.editSearchQuery.toLowerCase();
-      return this.registeredStudents.filter((student) =>
+      return this.allStudents.filter((student) =>
         student.name.toLowerCase().includes(query)
       );
     },
@@ -353,12 +364,21 @@ export default {
       } else if (tabName === "makeup") {
         this.fetchMakeUpData();
       }
+      // 조회했던 내용을 비워주기.
+      if (tabName != "checkin") this.checkinSearchQuery = "";
+      if (tabName != "edit") {
+        this.editSearchQuery = "";
+        this.selectedStudentToEdit = "";
+      }
     },
     // 학생정보 가져오기.
     async fetchStudents() {
       try {
         const response = await axios.get(API_URL);
-        this.registeredStudents = response.data;
+        this.allStudents = response.data;
+        this.registeredStudents = response.data.filter(
+          (student) => student.is_exist
+        );
       } catch (error) {
         console.error("Failed to fetch students:", error);
       }
@@ -515,6 +535,7 @@ export default {
           grade: this.selectedStudentToEdit.grade,
           study_hours: this.selectedStudentToEdit.study_hours,
           special_notes: this.selectedStudentToEdit.special_notes,
+          is_exist: this.selectedStudentToEdit.is_exist,
         });
         alert("학생 정보가 수정되었습니다!");
         this.fetchStudents();
@@ -935,6 +956,15 @@ body {
 
 .search-results li:last-child {
   border-bottom: none;
+}
+
+.form-group.checkbox-group {
+  display: flex;
+  align-items: center; /* 라벨과 체크박스를 세로로 중앙 정렬 */
+}
+
+.form-group.checkbox-group label {
+  margin-right: 10px; /* 라벨과 체크박스 사이 간격 조정 */
 }
 
 /* ManagerView.vue의 style 태그 안에 추가 */

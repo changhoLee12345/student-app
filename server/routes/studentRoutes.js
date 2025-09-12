@@ -84,12 +84,12 @@ router.post("/", (req, res) => {
 // 학생 정보 수정 (새로운 기능)
 router.put("/:id", (req, res) => {
   const { id } = req.params;
-  const { name, grade, study_hours, special_notes } = req.body;
+  const { name, grade, study_hours, special_notes, is_exist } = req.body;
   const query =
-    "UPDATE students SET name = ?, grade = ?, study_hours = ?, special_notes = ? WHERE id = ?";
+    "UPDATE students SET name = ?, grade = ?, study_hours = ?, special_notes = ?, is_exist = ? WHERE id = ?";
   connection.query(
     query,
-    [name, grade, study_hours, special_notes, id],
+    [name, grade, study_hours, special_notes, is_exist, id],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       if (result.affectedRows === 0) {
